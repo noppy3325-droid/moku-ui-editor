@@ -12,7 +12,8 @@ export default defineConfig({
   apply: 'build',
   generateBundle(_options, bundle) {
     const files = Object.keys(bundle).filter(name => !name.endsWith('.map'));
-    const version = (files.join('|').split('').reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 16777619), 2166136261) >>> 0).toString(16);
+    // Every release also refreshes un-hashed public assets and the HTML shell.
+    const version = Date.now().toString(36) + '-' + (files.join('|').split('').reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 16777619), 2166136261) >>> 0).toString(16);
     const paths = ['/index.html', '/favicon.svg', '/assets/mountain.jpg', '/assets/forest.jpg', ...files.map(name => '/' + name)];
     this.emitFile({ type: 'asset', fileName: 'sw.js', source: offlineWorkerSource(version, paths) });
   },
