@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { componentDefinitions, createProject, newNode, nodeTypes, parseProject, presets } from './model';
+import { ScreenRenderer } from './Renderer';
+import { capturePixelRatio, fileName, getExportWarnings, html, imageExtension, markdown, serializeForScript } from './exports';
+
+describe('complete component catalog', () => {
+  it('provides 40 valid, renderable components with a default editing state', () => { expect(nodeTypes.length).toBe(40); for (const type of nodeTypes) { const p = createProject(true), n = newNode(type); p.screens[0].nodes = [n]; expect(() => parseProject(p),type).not.toThrow(); expect(componentDefinitions[type].description.length).toBeGreaterThan(4); const result = renderToStaticMarkup(<ScreenRenderer screen={p.screens[0]} interactive />); expect(result).toContain(`data-node-type="${type}"`); expect(result).not.toContain('undefined'); } });
+  it('uses real newlines in options, cards and tables', () => { expect(newNode('table').properties.text.split('\n')).toHaveLength(4); expect(newNode('select').properties.text.split('\n').length).toBeGreaterThan(2); });
+  it('accepts v1 documents without the new component-state properties', () => { const p = createProject(); const raw = JSON.parse(JSON.stringify(p)); for (const s of raw.screens) for (const n of s.nodes) { delete n.properties.value; delete n.properties.disabled; delete n.properties.tone; delete n.properties.fit; } const restored = parseProject(raw); expect(restored.screens[0].nodes[0].properties.disabled).toBe(false); expect(restored.screens[0].nodes[0].properties.fit).toBe('cover'); });
+  it('offers 46 logical viewport presets across device and ratio families', () => { expect(presets).toHaveLength(46); expect(new Set(presets.map(p => p.name)).size).toBe(presets.length); expect(presets.some(p => p.kind === 'ratio')).toBe(true); for (const p of presets) { expect(p.w).toBeGreaterThanOrEqual(100); expect(p.h).toBeGreaterThanOrEqual(100); } });
+});
+describe('production export edge cases', () => {
+  it('uses correct image extensions and cross-platform filenames', () => { expect(imageExtension('data:image/webp;base64,AAAA')).toBe('webp'); expect(imageExtension('data:image/gif;base64,AAAA')).toBe('gif'); expect(fileName('CON.txt')).toBe('_CON.txt'); expect(fileName('旅/2026:案. ')).toBe('旅_2026_案'); const long = fileName('旅行の計画'.repeat(40)+'.json'); expect(long.endsWith('.json')).toBe(true); expect(new TextEncoder().encode(long).length).toBeLessThanOrEqual(180); });
+  it('caps memory for large raster exports without affecting ordinary 2x exports', () => { expect(capturePixelRatio(393,852)).toBe(2); const r = capturePixelRatio(6000,20000); expect(6000*r).toBeLessThanOrEqual(8192); expect(20000*r).toBeLessThanOrEqual(8192); expect(6000*20000*r*r).toBeLessThanOrEqual(24000001); });
+  it('reports omitted navigation destinations and preserves escaped long text', () => { const p = createProject(), warnings = getExportWarnings(p,[p.screens[0]]); expect(warnings.length).toBeGreaterThan(0); const n = p.screens[0].nodes[0]; n.name = '名|前'; n.properties.text = '<script>\n**長い本文**|追加'; const specification = markdown(p); expect(specification).toContain('名\\|前'); expect(specification).toContain('&lt;script&gt;'); expect(specification).toContain('\\*\\*長い本文\\*\\*'); });
+  it('serializes malicious script delimiters and includes offline prototype controls', () => { expect(serializeForScript('</script>\u2028&')).not.toContain('</script>'); const result = html(createProject()); expect(result).toContain('data-prototype-nav="back"'); expect(result).not.toContain('<script src='); });
+});

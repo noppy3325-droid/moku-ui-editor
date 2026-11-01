@@ -1,8 +1,14 @@
 node_modules/
 dist/
 .openai/local/
+.openai/
+.vercel/
+.env
+.env.*
+!.env.example
 *.zip
 *.log
 tsconfig.tsbuildinfo
 .DS_Store
 artifacts/
+*.tar.gz

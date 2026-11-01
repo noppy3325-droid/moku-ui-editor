@@ -1,15 +1,16 @@
 import { z } from 'zod';
 
-export const nodeTypes = ['text', 'rectangle', 'ellipse', 'line', 'button', 'image', 'icon', 'input', 'checkbox', 'switch', 'card', 'navbar', 'tabbar', 'list', 'divider', 'container'] as const;
-export type NodeType = typeof nodeTypes[number];
-export const labels: Record<NodeType, string> = { text: 'テキスト', rectangle: '長方形', ellipse: '円', line: '線', button: 'ボタン', image: '画像', icon: 'アイコン', input: '入力欄', checkbox: 'チェック', switch: 'スイッチ', card: 'カード', navbar: 'ナビゲーション', tabbar: 'タブバー', list: 'リスト', divider: '区切り線', container: 'コンテナ' };
+import { componentDefinitions, labels, nodeTypes, presets } from './catalog';
+import type { NodeType } from './catalog';
+export { componentDefinitions, labels, nodeTypes, presets, presetGroups, partCategories } from './catalog';
+export type { NodeType, DevicePreset } from './catalog';
 const color = z.string().regex(/^(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$/);
 const bounded = z.number().finite().min(-20000).max(20000);
 export const safeUrl = (value: string) => { try { return ['https:', 'http:', 'mailto:'].includes(new URL(value).protocol); } catch { return false; } };
 export const safeImage = (value: string) => /^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(value) || /^\/assets\/[a-zA-Z0-9_.-]+$/.test(value) || value === '';
 export const actionSchema = z.object({ id: z.string().max(100), trigger: z.literal('click'), type: z.enum(['none', 'navigate', 'back', 'url']), targetScreenId: z.string().max(100).default(''), url: z.string().max(2000).refine(v => !v || safeUrl(v), '安全なURLを指定してください').default(''), transition: z.enum(['none', 'fade', 'slide']).default('fade') });
-const styleSchema = z.object({ background: color, color, fontSize: z.number().min(1).max(500), fontFamily: z.string().max(160), fontWeight: z.number().min(100).max(900), lineHeight: z.number().min(.5).max(5), letterSpacing: z.number().min(-20).max(100), textAlign: z.enum(['left', 'center', 'right']), borderColor: color, borderWidth: z.number().min(0).max(50), radius: z.number().min(0).max(1000), opacity: z.number().min(0).max(1), shadow: z.boolean() });
-export const nodeSchema = z.object({ id: z.string().max(100), type: z.enum(nodeTypes), name: z.string().max(200), parentId: z.string().max(100).nullable(), x: bounded, y: bounded, width: z.number().min(1).max(10000), height: z.number().min(1).max(10000), rotation: z.number().min(-360).max(360), visible: z.boolean(), locked: z.boolean(), zIndex: z.number().int().min(-10000).max(10000), styles: styleSchema, properties: z.object({ text: z.string().max(20000), src: z.string().max(12000000).refine(safeImage, '画像形式が無効です'), icon: z.string().max(60), checked: z.boolean(), role: z.string().max(1000), fixed: z.enum(['none', 'top', 'bottom']) }), layout: z.object({ mode: z.enum(['free', 'vertical', 'horizontal', 'grid']), gap: z.number().min(0).max(1000), padding: z.number().min(0).max(1000), align: z.enum(['start', 'center', 'end']) }), actions: z.array(actionSchema).max(10), children: z.array(z.string().max(100)).max(1000) });
+const styleSchema = z.object({ background: color, color, fontSize: z.number().min(1).max(500), fontFamily: z.string().max(160).regex(/^[\p{L}\p{N}\s"',-]+$/u, "フォント名を確認してください"), fontWeight: z.number().min(100).max(900), lineHeight: z.number().min(.5).max(5), letterSpacing: z.number().min(-20).max(100), textAlign: z.enum(['left', 'center', 'right']), borderColor: color, borderWidth: z.number().min(0).max(50), radius: z.number().min(0).max(1000), opacity: z.number().min(0).max(1), shadow: z.boolean() });
+export const nodeSchema = z.object({ id: z.string().max(100), type: z.enum(nodeTypes), name: z.string().max(200), parentId: z.string().max(100).nullable(), x: bounded, y: bounded, width: z.number().min(1).max(10000), height: z.number().min(1).max(10000), rotation: z.number().min(-360).max(360), visible: z.boolean(), locked: z.boolean(), zIndex: z.number().int().min(-10000).max(10000), styles: styleSchema, properties: z.object({ text: z.string().max(20000), src: z.string().max(12000000).refine(safeImage, '画像形式が無効です'), icon: z.string().max(60), checked: z.boolean(), role: z.string().max(1000), fixed: z.enum(['none', 'top', 'bottom']), value: z.number().min(0).max(100).default(50), disabled: z.boolean().default(false), tone: z.enum(['neutral', 'success', 'warning', 'error', 'info']).default('neutral'), fit: z.enum(['cover', 'contain']).default('cover') }), layout: z.object({ mode: z.enum(['free', 'vertical', 'horizontal', 'grid']), gap: z.number().min(0).max(1000), padding: z.number().min(0).max(1000), align: z.enum(['start', 'center', 'end']) }), actions: z.array(actionSchema).max(10), children: z.array(z.string().max(100)).max(1000) });
 export const screenSchema = z.object({ id: z.string().max(100), name: z.string().max(200), description: z.string().max(5000).default(''), device: z.string().max(100), width: z.number().min(100).max(6000), height: z.number().min(100).max(10000), background: color, nodes: z.array(nodeSchema).max(2000), viewportSettings: z.object({ statusBar: z.boolean(), deviceFrame: z.boolean(), safeArea: z.boolean(), scrollHeight: z.number().min(100).max(20000) }) });
 export const projectSchema = z.object({ id: z.string().max(100), name: z.string().min(1).max(200), version: z.literal('1.0'), createdAt: z.string(), updatedAt: z.string(), settings: z.object({ description: z.string().max(10000), notes: z.string().max(10000), responsive: z.string().max(5000) }), assets: z.array(z.object({ id: z.string(), name: z.string(), src: z.string().max(12000000).refine(safeImage) })).max(200), screens: z.array(screenSchema).min(1).max(100), startScreenId: z.string().max(100) }).superRefine((p, ctx) => {
   const ids = p.screens.map(s => s.id);
@@ -29,12 +30,22 @@ export type UINode = z.infer<typeof nodeSchema>;
 export type Action = z.infer<typeof actionSchema>;
 export const uid = () => crypto.randomUUID();
 export const clone = <T,>(v: T): T => structuredClone(v);
-export const presets = [ { name: 'iPhone 16', w: 393, h: 852, group: 'スマートフォン' }, { name: 'Android', w: 412, h: 915, group: 'スマートフォン' }, { name: 'iPad', w: 820, h: 1180, group: 'タブレット' }, { name: 'Android Tablet', w: 800, h: 1280, group: 'タブレット' }, { name: 'ノートPC', w: 1440, h: 900, group: 'PC' }, { name: 'デスクトップ', w: 1920, h: 1080, group: 'PC' } ];
 export function newNode(type: NodeType, x = 32, y = 160): UINode {
-  const text = ({ text: '新しいテキスト', button: 'はじめる', input: 'テキストを入力', checkbox: 'チェック項目', card: 'カードのタイトル', navbar: 'ページタイトル', tabbar: 'ホーム　　検索　　お気に入り', list: 'リストの項目', switch: '通知を受け取る' } as Partial<Record<NodeType, string>>)[type] ?? '';
-  const sizes: Partial<Record<NodeType, [number, number]>> = { text: [240, 36], button: [280, 52], ellipse: [100, 100], icon: [32, 32], line: [240, 2], divider: [300, 1], image: [300, 190], navbar: [329, 56], tabbar: [329, 60], checkbox: [240, 32], switch: [250, 32], input: [300, 48], container: [300, 200], list: [300, 64], card: [300, 150] };
-  const [width, height] = sizes[type] ?? [180, 120];
-  return { id: uid(), type, name: labels[type], parentId: null, x, y, width, height, rotation: 0, visible: true, locked: false, zIndex: 0, styles: { background: ['text', 'icon', 'checkbox', 'switch'].includes(type) ? 'transparent' : type === 'button' ? '#237d68' : ['line', 'divider'].includes(type) ? '#dce1df' : '#f0f2ef', color: type === 'button' ? '#ffffff' : '#263b34', fontSize: type === 'text' ? 20 : 14, fontFamily: '"Noto Sans JP", sans-serif', fontWeight: type === 'button' ? 600 : 400, lineHeight: 1.6, letterSpacing: 0, textAlign: type === 'button' ? 'center' : 'left', borderColor: '#dce1df', borderWidth: ['input', 'card'].includes(type) ? 1 : 0, radius: type === 'ellipse' ? 1000 : 12, opacity: 1, shadow: false }, properties: { text, src: type === 'image' ? '/assets/mountain.jpg' : '', icon: 'Heart', checked: false, role: '', fixed: 'none' }, layout: { mode: 'free', gap: 12, padding: 16, align: 'start' }, actions: [], children: [] };
+  const def = componentDefinitions[type];
+  return {
+    id: uid(), type, name: def.label, parentId: null, x, y, width: def.width, height: def.height,
+    rotation: 0, visible: true, locked: false, zIndex: 0,
+    styles: {
+      background: def.background ?? '#F7F3EC', color: def.color ?? '#293A32',
+      fontSize: def.fontSize ?? 14, fontFamily: '"Noto Sans JP", sans-serif',
+      fontWeight: ['button', 'badge', 'chip'].includes(type) ? 600 : 400, lineHeight: 1.6,
+      letterSpacing: 0, textAlign: ['button', 'badge', 'chip', 'avatar'].includes(type) ? 'center' : 'left',
+      borderColor: '#D9D3C9', borderWidth: def.border ? 1 : 0,
+      radius: def.radius ?? 12, opacity: 1, shadow: type === 'dialog' || type === 'toast',
+    },
+    properties: { text: def.text, src: type === 'image' ? '/assets/mountain.jpg' : '', icon: def.icon ?? 'Heart', checked: def.checked ?? false, role: '', fixed: 'none', value: def.value ?? 50, disabled: false, tone: type === 'alert' ? 'success' : 'neutral', fit: 'cover' },
+    layout: { mode: 'free', gap: 12, padding: 16, align: 'start' }, actions: [], children: [],
+  };
 }
 export function newScreen(name = '新しい画面'): Screen { return { id: uid(), name, description: '', device: 'iPhone 16', width: 393, height: 852, background: '#ffffff', nodes: [], viewportSettings: { statusBar: true, deviceFrame: true, safeArea: true, scrollHeight: 852 } }; }
 export function createProject(blank = false): Project {
@@ -71,5 +82,13 @@ export function createProject(blank = false): Project {
   return { id: uid(), name: blank ? '無題のプロジェクト' : '旅のアプリ「yohaku」', version: '1.0', createdAt: now, updatedAt: now, settings: { description: blank ? '' : '日常に余白をつくる、小さな旅を見つけるアプリ。', notes: '', responsive: 'スマートフォンを基準に、幅に合わせて余白を調整する。' }, assets: [], screens: blank ? [home] : [home, detail, saved], startScreenId: home.id };
 }
 export function absolutePosition(n: UINode, nodes: UINode[]): { x: number; y: number } { let x = n.x, y = n.y, parent = n.parentId; const seen = new Set([n.id]); while (parent && !seen.has(parent)) { seen.add(parent); const p = nodes.find(v => v.id === parent); if (!p) break; x += p.x; y += p.y; parent = p.parentId; } return { x, y }; }
-export function parseProject(raw: unknown): Project { const p = projectSchema.parse(raw); p.screens.forEach(s => s.nodes.forEach(n => n.children = s.nodes.filter(c => c.parentId === n.id).map(c => c.id))); return p; }
+export function parseProject(raw: unknown): Project {
+  const p = projectSchema.parse(raw);
+  const original = raw as { screens: { nodes: { properties: { value?: unknown } }[] }[] };
+  p.screens.forEach((screen, i) => screen.nodes.forEach((node, j) => {
+    node.children = screen.nodes.filter(child => child.parentId === node.id).map(child => child.id);
+    if (original.screens[i].nodes[j].properties.value === undefined) node.properties.value = componentDefinitions[node.type].value ?? 0;
+  }));
+  return p;
+}
 export function warnings(p: Project) { return p.screens.flatMap(s => s.nodes.flatMap(n => n.actions.filter(a => a.type === 'navigate' && !p.screens.some(s => s.id === a.targetScreenId)).map(() => `${s.name}の「${n.name}」の移動先が見つかりません`))); }
