@@ -6,8 +6,13 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { legacyProject } from './fixtures/legacy-v1';
 import { useEditor } from './store';
+import { ColorField } from './inputs';
 
 describe('自由な見た目と旧データ', () => {
+  it('半透明色の実際の不透明度を色の欄に表示する',()=>{
+    expect(renderToStaticMarkup(createElement(ColorField,{label:'色',value:'#00000040',onChange:()=>{}}))).toContain('<span>25%</span>');
+    const short=renderToStaticMarkup(createElement(ColorField,{label:'色',value:'#f008',onChange:()=>{}}));expect(short).toContain('<span>53%</span>');expect(short).toContain('value="#ff0000"');
+  });
   it('実際に旧版から書き出したデータを、文字と外観を保って読み込む',()=>{
     const p=parseProject(legacyProject);expect(p.version).toBe('1.0');expect(p.fonts).toEqual([]);expect(p.library).toEqual([]);expect(p.screens[0].nodes[0].properties.text).toBe('yohaku.');expect(nodeCSS(p.screens[0].nodes[0]).background).toBe('transparent');
   });
