@@ -7,6 +7,10 @@ import { TypographyControls } from './TypographyControls';
 import { fontCatalog, portableFonts } from './fonts';
 import { useEditor } from './store';
 
+it('Nunitoの実際の可変ウェイト範囲を持ち運べる',()=>{
+  const p=createProject(true);p.fonts=[{id:'nunito',name:'Nunito',family:'Nunito',src:'data:font/woff2;base64,d09GMg==',weight:'200 1000',style:'normal',unicodeRange:'U+0000-00FF'}];expect(()=>parseProject(p)).not.toThrow();
+});
+
 it('フォントの追加でロック済みの文字や別プロジェクトを変更しない',()=>{
   const p=createProject(true),n=newNode('text');n.locked=true;p.screens[0].nodes.push(n);useEditor.getState().loadProject(p);
   const f={id:'custom',name:'Custom',family:'moku-custom',src:'data:font/woff2;base64,d09GMg==',weight:'400',style:'normal' as const,unicodeRange:''};
