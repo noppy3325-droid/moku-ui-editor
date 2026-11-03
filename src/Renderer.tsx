@@ -1,14 +1,15 @@
+import { Sparkles, Mail, Phone, Globe, ShoppingCart, CreditCard, ShieldCheck, Zap, Camera, Music, Video, Code2, LayoutDashboard, Send, MessageCircle, ArrowUpRight, CircleCheck, Clock, Briefcase, Palette, Coffee, Leaf, Sun, Moon, Cloud, Lock, Eye, Filter, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CSSProperties, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Bell, Bookmark, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Compass, Download, FileText, Heart, Home, Image, Info, MapPin, Menu, Minus, Plus, Search, Settings, Star, Upload, UserRound, Users, X } from 'lucide-react';
 import type { Action, Screen, UINode } from './model';
 import { appearanceCSS } from './appearance';
 
-export const iconMap = { Heart, Home, Search, Star, UserRound, ArrowRight, ArrowLeft, Settings, Bell, MapPin, Bookmark, Menu, Compass, Check, CalendarDays, Download, Upload, FileText, Users, Info, CircleAlert, Plus, Minus, X };
+export const iconMap = { Image, ChevronRight, Sparkles, Mail, Phone, Globe, ShoppingCart, CreditCard, ShieldCheck, Zap, Camera, Music, Video, Code2, LayoutDashboard, Send, MessageCircle, ArrowUpRight, CircleCheck, Clock, Briefcase, Palette, Coffee, Leaf, Sun, Moon, Cloud, Lock, Eye, Filter, SlidersHorizontal, Heart, Home, Search, Star, UserRound, ArrowRight, ArrowLeft, Settings, Bell, MapPin, Bookmark, Menu, Compass, Check, CalendarDays, Download, Upload, FileText, Users, Info, CircleAlert, Plus, Minus, X };
 export const iconNames = Object.keys(iconMap);
-export function NodeIcon({ name, size = 20 }: { name: string; size?: number }) {
+export function NodeIcon({ name, size = 20, strokeWidth = 1.7 }: { name: string; size?: number; strokeWidth?: number }) {
   const Icon = iconMap[name as keyof typeof iconMap] ?? Heart;
-  return <Icon size={size} strokeWidth={1.7} />;
+  return <Icon size={size} strokeWidth={strokeWidth} />;
 }
 export function nodeCSS(n: UINode): CSSProperties {
   return {
@@ -37,10 +38,10 @@ function NodeContent({ node: n, interactive, editing, onText }: { node: UINode; 
   if (editing) return <textarea className="inline-text" aria-label="テキストを直接編集" autoFocus defaultValue={n.properties.text} onPointerDown={e => e.stopPropagation()} onBlur={e => onText?.(e.target.value)} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.currentTarget.value = n.properties.text; e.currentTarget.blur(); } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) e.currentTarget.blur(); }} />;
   if (dismissed && interactive) return null;
   switch (n.type) {
-    case 'text': return <div className="node-text">{n.properties.text}</div>;
+    case 'text': return <div className="node-text" style={{height:n.styles.autoHeight ? 'auto' : '100%'}}>{n.properties.text}</div>;
     case 'button': return <button type="button" className="node-button node-native-button" disabled={disabled} tabIndex={interactive ? 0 : -1}>{n.properties.text}</button>;
     case 'image': return n.properties.src ? <img className="node-image" style={{ objectFit: n.properties.fit }} src={n.properties.src} alt={n.properties.role || n.name} draggable={false} /> : <div className="node-placeholder"><Image size={30} /><span>画像を選択</span></div>;
-    case 'icon': return <div className="node-center"><NodeIcon name={n.properties.icon} size={Math.max(12, Math.min(n.width, n.height) * .65)} /></div>;
+    case 'icon': return <div className="node-center"><NodeIcon name={n.properties.icon} size={n.properties.iconSize || Math.max(12, Math.min(n.width, n.height) * .65)} strokeWidth={n.properties.iconStroke} /></div>;
     case 'input':
     case 'search': return <div className="node-input">{n.type === 'search' && <Search size={17} />}<input type={n.type === 'search' ? 'search' : 'text'} aria-label={n.name} placeholder={n.properties.text} readOnly={!interactive} disabled={disabled} tabIndex={interactive ? 0 : -1} onClick={stop} /></div>;
     case 'textarea': return <textarea className="node-textarea" aria-label={n.name} placeholder={n.properties.text} readOnly={!interactive} disabled={disabled} tabIndex={interactive ? 0 : -1} onClick={stop} />;
@@ -100,7 +101,10 @@ export function ScreenRenderer({ screen, interactive, selected = [], editingId, 
       {render(n.id)}
     </div>;
   });
-  return <div className={`screen-renderer ${interactive ? 'interactive-screen' : ''}`} style={{ width: screen.width, minHeight: screen.height, height: Math.max(screen.height, screen.viewportSettings.scrollHeight), background: screen.background }}>
+  const raw=screen.background.replace('#',''),hex=raw.length<=4?raw.slice(0,3).split('').map(c=>c+c).join(''):raw.slice(0,6);
+  const rgb=[0,2,4].map(i=>Number.isFinite(parseInt(hex.slice(i,i+2),16))?parseInt(hex.slice(i,i+2),16):255);
+  const ink=(rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722)<140?'#ffffff':'#302d28';
+  return <div className={`screen-renderer ${interactive ? 'interactive-screen' : ''}`} style={{ width: screen.width, minHeight: screen.height, height: Math.max(screen.height, screen.viewportSettings.scrollHeight), background: screen.background, '--device-ink':ink } as CSSProperties}>
     {screen.viewportSettings.statusBar && <div className="status-bar"><b>9:41</b><div className="status-icons"><svg viewBox="0 0 17 12" width="17" height="12"><path d="M1 8v3h2V8zM5 6v5h2V6zM9 3v8h2V3zM13 0v11h2V0z" fill="currentColor" /></svg><svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 3Q8-3 15 3M3.5 6q4.5-4 9 0M6 8.5q2-2 4 0" stroke="currentColor" fill="none" strokeWidth="1.6" /><circle cx="8" cy="11" r="1" fill="currentColor" /></svg><span className="battery" /></div></div>}
     {render(null)}
     {screen.viewportSettings.safeArea && <div className="home-indicator" style={{ top: screen.height - 11 }} />}

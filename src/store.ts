@@ -1,7 +1,8 @@
+import { buildBlock, expandNode, freshNodes, themes } from './blocks';
 import { create } from 'zustand';
 import Dexie, { type Table } from 'dexie';
 import { clone, createProject, newNode, newScreen, nodeTypes, parseProject, uid } from './model';
-import type { NodeType, Project, Screen, UINode } from './model';
+import type { FontAsset, NodeType, Project, Screen, UINode } from './model';
 import { clampZoom, deepEqual, editableRoots, isEffectivelyLocked, localDelta, reflowScreen, worldGeometry } from './editor-geometry';
 import { createSaveQueue } from './save-queue';
 
@@ -13,6 +14,10 @@ type ViewState = { screenId: string; selected: string[]; zoom: number; grid: boo
 type Editor = {
   project: Project; screenId: string; selected: string[]; past: Project[]; future: Project[];
   zoom: number; grid: boolean; snap: boolean; tool: 'select' | 'hand'; clipboard: UINode[];
+  styleClipboard: UINode['styles'] | null;
+  addFont: (font: FontAsset, ids: string[], projectId: string) => boolean;
+  copyStyle: () => void; pasteStyle: () => void;
+  insertBlock: (key: string, themeId: string) => void; saveComponent: (name: string) => void; insertComponent: (id: string) => void; deleteComponent: (id: string) => void; expandSelection: () => void; reparent: (parentId: string | null) => void;
   saveStatus: 'saved' | 'saving' | 'error'; loaded: boolean; viewRestored: boolean; toast: string;
   update: (fn: (p: Project) => void, history?: boolean) => void;
   checkpoint: () => void; undo: () => void; redo: () => void;
@@ -43,11 +48,12 @@ const validSelection = (p: Project, screenId: string, ids: string[]) => {
 
 export const useEditor = create<Editor>((set, get) => ({
   project: initial, screenId: initial.screens[0].id, selected: [], past: [], future: [], zoom: .8,
-  grid: false, snap: true, tool: 'select', clipboard: [], saveStatus: 'saved', loaded: false, viewRestored: false, toast: '',
+  grid: false, snap: true, tool: 'select', clipboard: [], styleClipboard: null, saveStatus: 'saved', loaded: false, viewRestored: false, toast: '',
   update: (fn, history = true) => {
     const st = get(), p = clone(st.project);
     fn(p); normalizeDocument(p);
     if (deepEqual(p, st.project)) return;
+    p.version = '2.0';
     p.updatedAt = new Date().toISOString();
     const screenId = p.screens.some(sc => sc.id === st.screenId) ? st.screenId : p.screens[0].id;
     set({ project: p, screenId, selected: validSelection(p, screenId, st.selected), past: history ? [...st.past.slice(-59), st.project] : st.past, future: history ? [] : st.future, saveStatus: 'saving' });
@@ -85,11 +91,55 @@ export const useEditor = create<Editor>((set, get) => ({
     const sc = currentScreen({ project: p, screenId: get().screenId });
     sc.nodes.forEach(n => { if (ids.includes(n.id) && !isEffectivelyLocked(n, sc.nodes)) Object.assign(n.properties, patch); });
   }),
+  addFont: (font,ids,projectId) => {
+    const st=get();if(st.project.id!==projectId){st.notify('プロジェクトが変わったためフォントを追加しませんでした');return false;}
+    if(st.project.fonts.filter(f=>f.family.startsWith('moku-')).length>=20){st.notify('追加できるフォントは20個までです');return false;}
+    st.update(p=>{p.fonts.push(font);p.screens.forEach(s=>s.nodes.forEach(n=>{if(ids.includes(n.id)&&!isEffectivelyLocked(n,s.nodes))n.styles.fontFamily='"'+font.family+'", sans-serif';}));});return true;
+  },
+  copyStyle: () => { const st=get(),n=currentScreen(st).nodes.find(n=>st.selected.includes(n.id)); if(n){set({styleClipboard:clone(n.styles)});get().notify('見た目をコピーしました');} },
+  pasteStyle: () => { const st=get(); if(st.styleClipboard)st.patchStyles(st.selected,clone(st.styleClipboard)); },
+  insertBlock: (key,themeId) => {
+    const st=get(), sc=currentScreen(st), nodes=buildBlock(key,themes.find(t=>t.id===themeId)??themes[0]);
+    if(sc.nodes.length+nodes.length>2000){st.notify('パーツ数の上限です');return;}
+    const root=nodes[0];root.x=Math.max(0,(sc.width-root.width)/2);root.y=80;root.zIndex=Math.max(0,...sc.nodes.map(n=>n.zIndex))+1;
+    if(sc.width<root.width){const ratio=sc.width/root.width;nodes.forEach(n=>{n.x*=ratio;n.width*=ratio;});root.x=0;}
+    st.update(p=>{const target=currentScreen({project:p,screenId:st.screenId});target.nodes.push(...nodes);target.viewportSettings.scrollHeight=Math.max(target.viewportSettings.scrollHeight,root.y+root.height+30);});set({selected:[root.id]});
+  },
+  saveComponent: name => {
+    const st=get();if(!st.selected.length)return;if(st.project.library.length>=30){st.notify('保存できる部品は30個までです');return;}
+    const oldClipboard=st.clipboard;st.copy();const nodes=clone(get().clipboard);set({clipboard:oldClipboard});
+    if(nodes.length>300){st.notify('保存する部品は300レイヤー以内にしてください');return;}
+    const safeName=name.trim().slice(0,200)||'自分の部品';st.update(p=>p.library.push({id:uid(),name:safeName,nodes}));st.notify('「自分の部品」に保存しました');
+  },
+  insertComponent: id => {
+    const st=get(),saved=st.project.library.find(c=>c.id===id);if(!saved)return;const nodes=freshNodes(saved.nodes);
+    if(currentScreen(st).nodes.length+nodes.length>2000){st.notify('パーツ数の上限です');return;}
+    st.update(p=>{const sc=currentScreen({project:p,screenId:st.screenId}),top=Math.max(0,...sc.nodes.map(n=>n.zIndex))+1;nodes.filter(n=>!n.parentId).forEach(n=>n.zIndex+=top);sc.nodes.push(...nodes);const bottom=Math.max(...nodes.filter(n=>!n.parentId).map(n=>n.y+n.height));sc.viewportSettings.scrollHeight=Math.max(sc.viewportSettings.scrollHeight,bottom+30);});set({selected:nodes.filter(n=>!n.parentId).map(n=>n.id)});
+  },
+  deleteComponent: id => get().update(p=>{p.library=p.library.filter(c=>c.id!==id);}),
+  expandSelection: () => {
+    const st=get(),sc=currentScreen(st),roots=editableRoots(sc.nodes,st.selected),expanded=roots.map(expandNode);
+    if(sc.nodes.length+expanded.reduce((s,n)=>s+n.length-1,0)>2000){st.notify('展開するとパーツ数の上限を超えます');return;}
+    st.update(p=>{const s=currentScreen({project:p,screenId:st.screenId});expanded.forEach(nodes=>{const idx=s.nodes.findIndex(n=>n.id===nodes[0].id);s.nodes.splice(idx,1,...nodes);});});
+  },
+  reparent: parentId => {
+    const st=get(),sc=currentScreen(st),target=parentId?sc.nodes.find(n=>n.id===parentId):null;
+    if(parentId&&(!target||target.type!=='container'||isEffectivelyLocked(target,sc.nodes)))return;
+    const roots=editableRoots(sc.nodes,st.selected);if(!roots.length)return;
+    for(const n of roots){let ancestor=target;const seen=new Set<string>();while(ancestor&&!seen.has(ancestor.id)){if(ancestor.id===n.id){st.notify('自分自身や内側の要素には移動できません');return;}seen.add(ancestor.id);ancestor=sc.nodes.find(v=>v.id===ancestor!.parentId);}}
+    const positions=roots.map(n=>({n,...worldGeometry(n,sc.nodes)})),parent=target?worldGeometry(target,sc.nodes):null;
+    st.update(p=>{const s=currentScreen({project:p,screenId:st.screenId});positions.forEach(v=>{const n=s.nodes.find(n=>n.id===v.n.id)!;n.parentId=parentId;
+      if(target&&parent){const angle=parent.rotation*Math.PI/180,dx=v.x+n.width/2-(parent.x+target.width/2),dy=v.y+n.height/2-(parent.y+target.height/2);n.x=target.width/2+dx*Math.cos(angle)+dy*Math.sin(angle)-n.width/2;n.y=target.height/2-dx*Math.sin(angle)+dy*Math.cos(angle)-n.height/2;n.rotation=v.rotation-parent.rotation;}
+      else {n.x=v.x;n.y=v.y;n.rotation=v.rotation;}
+    });});
+  },
   addNode: (type, x, y) => {
     if (!nodeTypes.includes(type)) return;
     const sc = currentScreen(get()); if (sc.nodes.length >= 2000) { get().notify("1画面に追加できるパーツは2000個までです"); return; } const n = newNode(type, x, y), canvasHeight = Math.max(sc.height, sc.viewportSettings.scrollHeight);
     n.width = Math.min(n.width, sc.width); n.height = Math.min(n.height, canvasHeight);
     n.x = bounded(n.x, 0, Math.max(0, sc.width - n.width)); n.y = bounded(n.y, 0, Math.max(0, canvasHeight - n.height));
+    const container = x===undefined && y===undefined && get().selected.length===1 ? sc.nodes.find(v=>v.id===get().selected[0] && v.type==='container' && !isEffectivelyLocked(v,sc.nodes)) : undefined;
+    if(container){n.parentId=container.id;n.x=container.layout.padding;n.y=container.layout.padding;}
     n.zIndex = Math.max(0, ...sc.nodes.map(n => n.zIndex)) + 1;
     get().update(p => currentScreen({ project: p, screenId: get().screenId }).nodes.push(n));
     set({ selected: [n.id], tool: 'select' });

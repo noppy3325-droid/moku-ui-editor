@@ -1,3 +1,6 @@
+import fontNotices from './font-notices.txt?raw';
+import { usedFontCSS, portableFonts } from './fonts';
+import { useEditor } from './store';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { toPng, toSvg } from 'html-to-image';
 import JSZip from 'jszip';
@@ -54,6 +57,11 @@ export function markdown(p: Project, screens = p.screens, assetPaths: ReadonlyMa
     text.push('', '### 色・文字・レイアウト');
     s.nodes.forEach(n => {
       text.push(`- **${mdInline(n.name)}** (${mdInline(n.id)})：塗り ${n.styles.background}、文字色 ${n.styles.color}、フォント ${mdInline(n.styles.fontFamily)}（代替フォントを含む）、${n.styles.fontSize}px / ${n.styles.fontWeight}、行間 ${n.styles.lineHeight}、字間 ${n.styles.letterSpacing}px、${n.styles.textAlign}揃え、角丸 ${n.styles.radius}px、枠線 ${n.styles.borderWidth}px ${n.styles.borderColor}、不透明度 ${n.styles.opacity}、回転 ${n.rotation}°、影 ${n.styles.shadow ? 'あり' : 'なし'}、重なり順 ${n.zIndex}、${n.visible ? '表示' : '非表示'}、${n.locked ? 'ロック' : '編集可'}。`);
+      const g=n.styles.gradient,shadow=n.styles.shadowStyle,corners=n.styles.corners;
+      if(g.type!=='none')text.push(`  - グラデーション：${g.type} / ${g.angle}° / ${g.from} → ${g.to}`);
+      if(n.styles.shadow)text.push(`  - 影：横 ${shadow.x}px / 縦 ${shadow.y}px / ぼかし ${shadow.blur}px / 広がり ${shadow.spread}px / ${shadow.color} / ${shadow.inset?'内側':'外側'}`);
+      if(corners.enabled)text.push(`  - 角別の丸み：${corners.topLeft}, ${corners.topRight}, ${corners.bottomRight}, ${corners.bottomLeft}px`);
+      text.push(`  - 文字装飾：${n.styles.fontStyle} / ${n.styles.textDecoration} / ${n.styles.textTransform} / 縦揃え ${n.styles.verticalAlign}`);
       if (n.children.length || n.type === 'container') text.push(`  - 配置 ${n.layout.mode} / 余白 ${n.layout.padding}px / 間隔 ${n.layout.gap}px / 整列 ${n.layout.align} / 子要素 ${n.children.map(mdInline).join(', ')}`);
       if (n.properties.fixed !== 'none') text.push(`  - スクロール時の固定：${n.properties.fixed}`);
       text.push(`  - 部品の状態：数値・選択番号 ${n.properties.value} / ${n.properties.checked ? "選択済み" : "未選択"} / ${n.properties.disabled ? "無効" : "有効"} / 通知 ${n.properties.tone} / 画像 ${n.properties.fit}`);
@@ -76,8 +84,9 @@ export function html(p: Project, screens = p.screens) {
   return `<!doctype html>\n<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHTML(p.name)}</title><style>
 :root{--nk-sand:#D4A373;--nk-ocean:#0891B2;--nk-forest:#166534;--nk-background:#FFFDF7;--nk-surface:#FFFFFF;--nk-success:#166534;--nk-warning:#CA8A04;--nk-error:#DC2626;--nk-info:#0891B2}
 ${rendererCSS}
+${usedFontCSS(selected)}
 *{box-sizing:border-box}body{margin:0;background:#f5f0e7;color:#343c38;font-family:system-ui,"Yu Gothic",sans-serif}.prototype-toolbar{min-height:60px;display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 20px;background:#fffdf7;border-bottom:1px solid #e7e0d5;position:relative;z-index:10001}.prototype-toolbar strong{font-size:13px;max-width:35vw;overflow-wrap:anywhere}.prototype-toolbar nav{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.prototype-toolbar button,.prototype-toolbar select{font:inherit;font-size:11px;border:1px solid #ded4c5;border-radius:6px;background:white;color:#4c554c;padding:7px 10px;cursor:pointer;max-width:190px}.prototype-toolbar button:focus-visible,.prototype-toolbar select:focus-visible,.has-action:focus-visible{outline:2px solid #0891b2;outline-offset:3px}.prototype-toolbar button:disabled{opacity:.4;cursor:default}.prototype-workspace{padding:24px 16px;overflow:auto;min-height:calc(100dvh - 60px)}.prototype-screen{position:relative;margin:0 auto;width:max-content;box-shadow:0 8px 40px #0001;overflow:auto;background:white;overscroll-behavior:contain;outline:none}.prototype-screen[hidden]{display:none!important}.prototype-status{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:11px 16px;border:1px solid #ded4c5;border-radius:8px;background:#fffdf7;box-shadow:0 3px 18px #0002;font-size:12px;z-index:20000}.prototype-status:empty{display:none}.screen-transition-fade{animation:prototype-fade .2s ease}.screen-transition-slide{animation:prototype-slide .25s ease}@keyframes prototype-fade{from{opacity:.2}to{opacity:1}}@keyframes prototype-slide{from{transform:translateX(20px);opacity:.4}to{transform:translateX(0);opacity:1}}.ui-node.has-action{cursor:pointer}@media(max-width:600px){.prototype-toolbar{padding:10px 12px;gap:8px;flex-direction:column;align-items:flex-start}.prototype-toolbar strong{max-width:100%}.prototype-toolbar nav{width:100%}.prototype-toolbar select{flex:1;max-width:100%;min-width:0}}@media(prefers-reduced-motion:reduce){.prototype-screen{animation:none!important}}
-</style></head><body><header class="prototype-toolbar"><strong>${escapeHTML(p.name)}</strong><nav aria-label="プレビュー操作"><button type="button" data-prototype-nav="back" aria-label="前の画面に戻る" disabled>← 戻る</button><button type="button" data-prototype-nav="reset">最初へ</button><select aria-label="表示する画面" id="prototype-screen-select">${options}</select><button type="button" data-prototype-nav="fit">画面に合わせる</button><button type="button" data-prototype-nav="actual">100%</button></nav></header><main class="prototype-workspace">${content}</main><div class="prototype-status" role="status" aria-live="polite"></div><script>\nconst prototypeNodes=${serializeForScript(data)};\nconst prototypeScreens=${serializeForScript(screenList)};\nconst prototypeStart=${serializeForScript(selected.startScreenId)};\n${prototypeRuntime}\n</script></body></html>`;
+</style></head><body><header class="prototype-toolbar"><strong>${escapeHTML(p.name)}</strong><nav aria-label="プレビュー操作"><button type="button" data-prototype-nav="back" aria-label="前の画面に戻る" disabled>← 戻る</button><button type="button" data-prototype-nav="reset">最初へ</button><select aria-label="表示する画面" id="prototype-screen-select">${options}</select><button type="button" data-prototype-nav="fit">画面に合わせる</button><button type="button" data-prototype-nav="actual">100%</button></nav></header><main class="prototype-workspace">${content}</main><details class="prototype-font-licenses" style="font:11px system-ui;color:#777;padding:16px"><summary>Font licenses</summary><pre style="white-space:pre-wrap">${escapeHTML(fontNotices)}</pre></details><div class="prototype-status" role="status" aria-live="polite"></div><script>\nconst prototypeNodes=${serializeForScript(data)};\nconst prototypeScreens=${serializeForScript(screenList)};\nconst prototypeStart=${serializeForScript(selected.startScreenId)};\n${prototypeRuntime}\n</script></body></html>`;
 }
 export function download(data: string | Blob, name: string, type = 'text/plain;charset=utf-8') {
   const blob = typeof data === 'string' ? new Blob([data], { type }) : data;
@@ -116,6 +125,9 @@ export async function portableProject(p: Project) {
   const copy = structuredClone(p), sources = await imageSources([...p.screens.flatMap(s => s.nodes.map(n => n.properties.src)), ...p.assets.map(a => a.src)]);
   copy.screens.forEach(s => s.nodes.forEach(n => { if (n.properties.src) n.properties.src = sources.get(n.properties.src)!; }));
   copy.assets.forEach(asset => { if (asset.src) asset.src = sources.get(asset.src)!; });
+  const librarySources = await imageSources(p.library.flatMap(c=>c.nodes.map(n=>n.properties.src)).filter(Boolean));
+  copy.library.forEach(c=>c.nodes.forEach(n=>{if(n.properties.src)n.properties.src=librarySources.get(n.properties.src)!;}));
+  copy.fonts = await portableFonts(copy);
   return copy;
 }
 export function capturePixelRatio(width: number, height: number) {
@@ -130,7 +142,10 @@ async function within<T>(promise: Promise<T>, milliseconds: number, message: str
 export async function screenImage(id: string, format: 'png' | 'svg', frame: boolean) {
   const element = Array.from(document.querySelectorAll<HTMLElement>('[data-export-screen]')).find(el => el.dataset.exportScreen === id);
   if (!element) throw new Error('画面の準備が終わっていません。少し待ってから書き出してください。');
-  if (document.fonts) await within(document.fonts.ready, 2000, 'フォントを確認してください。').catch(() => undefined);
+  if (document.fonts) await within(document.fonts.ready, 15000, 'フォントの読み込みが完了していません。少し待ってから書き出してください。');
+  const project=useEditor.getState().project, screen=project.screens.find(s=>s.id===id);
+  const fontProject=screen?scopedProject(project,[screen]):project;
+  const fontEmbedCSS=usedFontCSS({...fontProject,fonts:await portableFonts(fontProject)});
   await Promise.all(Array.from(element.querySelectorAll('img')).map(img => within(img.decode(), 15000, '画像の読み込みが完了しませんでした。').catch(() => { throw new Error('画像を表示できません。画像を選び直してから書き出してください。'); })));
   let target = element; let wrapper: HTMLDivElement | undefined;
   if (frame) {
@@ -141,7 +156,7 @@ export async function screenImage(id: string, format: 'png' | 'svg', frame: bool
     wrapper.append(content); document.body.append(wrapper); target = wrapper;
   }
   try {
-    const options = { pixelRatio: capturePixelRatio(target.offsetWidth, target.offsetHeight), cacheBust: false, skipFonts: true, includeQueryParams: true };
+    const options = { pixelRatio: capturePixelRatio(target.offsetWidth, target.offsetHeight), cacheBust: false, fontEmbedCSS, includeQueryParams: true };
     const result = await (format === 'png' ? toPng(target, options) : toSvg(target, options));
     if (!result || result === 'data:,') throw new Error('画像を生成できませんでした。画面サイズを小さくしてお試しください。');
     return result;
@@ -164,6 +179,7 @@ export async function exportZip(p: Project, screens: Screen[], frame: boolean) {
   const zip = new JSZip(), portable = await portableProject(scopedProject(p, screens));
   const { unique, nodePaths } = await assetBundle(portable);
   const imageFiles = screens.map((s, i) => ({ id: s.id, name: s.name, width: s.width, height: s.height, image: `screens/${String(i + 1).padStart(2, '0')}-${fileName(s.name)}.png` }));
+  zip.file('FONT-LICENSES.txt', fontNotices);
   zip.file('project.json', JSON.stringify(portable, null, 2));
   zip.file('specification.md', markdown(p, screens, nodePaths));
   zip.file('prompt.md', implementationPrompt);

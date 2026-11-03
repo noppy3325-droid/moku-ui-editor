@@ -71,10 +71,11 @@ export function reflowScreen(screen: Screen) {
     const children = parent.children.map(id => byId.get(id)!).filter(Boolean).sort((a, b) => a.zIndex - b.zIndex);
     const { mode, padding, gap, align } = parent.layout;
     if (mode === 'grid') {
-      const columnWidth = Math.max(1, (parent.width - padding * 2 - gap) / 2);
+      const columns = parent.layout.columns ?? 2;
+      const columnWidth = Math.max(1, (parent.width - padding * 2 - gap * (columns - 1)) / columns);
       let y = padding;
-      for (let i = 0; i < children.length; i += 2) {
-        const row = children.slice(i, i + 2);
+      for (let i = 0; i < children.length; i += columns) {
+        const row = children.slice(i, i + columns);
         row.forEach((child, col) => {
           child.x = padding + col * (columnWidth + gap);
           child.y = y;

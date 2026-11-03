@@ -77,6 +77,22 @@ export function Canvas() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current); };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const measure = () => { if (cancelled || !board.current) return;
+      const heights = new Map<string, number>();
+      board.current.querySelectorAll<HTMLElement>('[data-node-id]').forEach(el => {
+        const n = screen.nodes.find(n => n.id === el.dataset.nodeId);
+        if (n?.type === 'text' && n.styles.autoHeight && !isEffectivelyLocked(n, screen.nodes)) {
+          const content = el.querySelector<HTMLElement>(':scope > .node-text');
+          if (content) heights.set(n.id, Math.max(1, Math.min(10000, Math.ceil(content.scrollHeight))));
+        }
+      });
+      if ([...heights].some(([id,h]) => screen.nodes.find(n=>n.id===id)?.height !== h)) st.update(p=>p.screens.find(s=>s.id===screen.id)!.nodes.forEach(n=>{if(heights.has(n.id))n.height=heights.get(n.id)!;}), false);
+    };
+    void document.fonts.ready.then(measure); return () => { cancelled = true; };
+  }, [screen.nodes]);
+
   function begin(e: ReactPointerEvent, node: UINode) {
     if (editing === node.id || e.button !== 0 || panning) return;
     e.stopPropagation();

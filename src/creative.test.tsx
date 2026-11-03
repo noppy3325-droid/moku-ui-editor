@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, newNode, parseProject } from './model';
 import { nodeCSS } from './Renderer';
+import { ScreenRenderer } from './Renderer';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { legacyProject } from './fixtures/legacy-v1';
+import { useEditor } from './store';
 
 describe('自由な見た目と旧データ', () => {
+  it('実際に旧版から書き出したデータを、文字と外観を保って読み込む',()=>{
+    const p=parseProject(legacyProject);expect(p.version).toBe('1.0');expect(p.fonts).toEqual([]);expect(p.library).toEqual([]);expect(p.screens[0].nodes[0].properties.text).toBe('yohaku.');expect(nodeCSS(p.screens[0].nodes[0]).background).toBe('transparent');
+  });
+  it('旧データに新しい装飾を付けたら書き出しスキーマをv2にする',()=>{
+    const p=parseProject(legacyProject);useEditor.getState().loadProject(p);useEditor.getState().patchStyles([p.screens[0].nodes[0].id],{gradient:{type:'linear',angle:90,from:'#000000',to:'#ffffff'}});expect(useEditor.getState().project.version).toBe('2.0');
+  });
+  it('暗い画面でもステータスバーの文字を読める色にする',()=>{
+    const p=createProject(true),screen=p.screens[0];
+    for(const bg of ['#0F1221','#000000','#000']){screen.background=bg;expect(renderToStaticMarkup(createElement(ScreenRenderer,{screen}))).toContain('--device-ink:#ffffff');}
+    screen.background='#FFFDF7';expect(renderToStaticMarkup(createElement(ScreenRenderer,{screen}))).toContain('--device-ink:#302d28');
+  });
   it('旧プロジェクトの見た目を保ちながら装飾の既定値を補完する', () => {
     const raw = createProject(true);
     const n = newNode('button');

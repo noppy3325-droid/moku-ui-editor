@@ -35,3 +35,10 @@
 .screen-renderer:not(.interactive-screen) .node-native-button,.screen-renderer:not(.interactive-screen) input,.screen-renderer:not(.interactive-screen) select,.screen-renderer:not(.interactive-screen) textarea,.screen-renderer:not(.interactive-screen) summary{pointer-events:none}.screen-renderer:not(.interactive-screen) .inline-text{pointer-events:auto}
 .interactive-screen .ui-node{touch-action:auto}.interactive-screen .has-action{cursor:pointer}.interactive-screen .has-action:hover{filter:brightness(.985)}.interactive-screen input,.interactive-screen select,.interactive-screen textarea{user-select:text;touch-action:auto}.interactive-screen .node-native-button{cursor:pointer}.interactive-screen .node-toggle{pointer-events:none}
 @media(prefers-reduced-motion:reduce){.screen-renderer *{transition:none!important;animation:none!important}}
+.node-text{display:flex;flex-direction:column;justify-content:var(--node-text-align,flex-start)}
+.ui-node[style*="--node-padding"]>:first-child:not(img){padding:var(--node-padding)}
+.node-check input[type=checkbox],.node-radio input[type=radio],.node-slider input{accent-color:var(--node-accent,#b5814e)}
+.node-toggle.on,.node-progress-track i{background:var(--node-accent,#b9824c)}
+.node-chip.selected,.node-tabs>button.active,.node-pagination button.active,.node-segmented>button.active,.node-side-menu>button.active{color:var(--node-accent,#a8743e)}
+.node-dialog footer button:last-child{background:var(--node-accent,#d4a373)}
+.status-bar{color:var(--device-ink,#302d28)}.home-indicator{background:var(--device-ink,#302d28)}

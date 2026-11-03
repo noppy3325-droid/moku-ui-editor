@@ -17,13 +17,21 @@ const styleSchema = legacyStyleSchema.extend({
   shadowStyle: z.object({ x: z.number().min(-500).max(500), y: z.number().min(-500).max(500), blur: z.number().min(0).max(500), spread: z.number().min(-500).max(500), color, inset: z.boolean() }).default({ x: 0, y: 8, blur: 28, spread: 0, color: '#27342b16', inset: false }),
   borderStyle: z.enum(['solid', 'dashed', 'dotted', 'double']).default('solid'),
   fontStyle: z.enum(['normal', 'italic']).default('normal'), textDecoration: z.enum(['none', 'underline', 'line-through']).default('none'), textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
-  verticalAlign: z.enum(['top', 'center', 'bottom']).default('top'), autoHeight: z.boolean().default(false),
+  clipContent: z.boolean().default(false), verticalAlign: z.enum(['top', 'center', 'bottom']).default('top'), autoHeight: z.boolean().default(false),
   padding: z.object({ enabled: z.boolean(), top: z.number().min(0).max(1000), right: z.number().min(0).max(1000), bottom: z.number().min(0).max(1000), left: z.number().min(0).max(1000) }).default({ enabled: false, top: 0, right: 0, bottom: 0, left: 0 }),
   blur: z.number().min(0).max(100).default(0), backdropBlur: z.number().min(0).max(100).default(0), accent: color.default('#D4A373'),
 });
-export const nodeSchema = z.object({ id: z.string().max(100), type: z.enum(nodeTypes), name: z.string().max(200), parentId: z.string().max(100).nullable(), x: bounded, y: bounded, width: z.number().min(1).max(10000), height: z.number().min(1).max(10000), rotation: z.number().min(-360).max(360), visible: z.boolean(), locked: z.boolean(), zIndex: z.number().int().min(-10000).max(10000), styles: styleSchema, properties: z.object({ text: z.string().max(20000), src: z.string().max(12000000).refine(safeImage, '画像形式が無効です'), icon: z.string().max(60), checked: z.boolean(), role: z.string().max(1000), fixed: z.enum(['none', 'top', 'bottom']), value: z.number().min(0).max(100).default(50), disabled: z.boolean().default(false), tone: z.enum(['neutral', 'success', 'warning', 'error', 'info']).default('neutral'), fit: z.enum(['cover', 'contain']).default('cover') }), layout: z.object({ mode: z.enum(['free', 'vertical', 'horizontal', 'grid']), gap: z.number().min(0).max(1000), padding: z.number().min(0).max(1000), align: z.enum(['start', 'center', 'end']) }), actions: z.array(actionSchema).max(10), children: z.array(z.string().max(100)).max(1000) });
+export const nodeSchema = z.object({ id: z.string().max(100), type: z.enum(nodeTypes), name: z.string().max(200), parentId: z.string().max(100).nullable(), x: bounded, y: bounded, width: z.number().min(1).max(10000), height: z.number().min(1).max(10000), rotation: z.number().min(-360).max(360), visible: z.boolean(), locked: z.boolean(), zIndex: z.number().int().min(-10000).max(10000), styles: styleSchema, properties: z.object({ text: z.string().max(20000), src: z.string().max(12000000).refine(safeImage, '画像形式が無効です'), icon: z.string().max(60), iconSize: z.number().min(0).max(1000).default(0), iconStroke: z.number().min(.1).max(8).default(1.7), checked: z.boolean(), role: z.string().max(1000), fixed: z.enum(['none', 'top', 'bottom']), value: z.number().min(0).max(100).default(50), disabled: z.boolean().default(false), tone: z.enum(['neutral', 'success', 'warning', 'error', 'info']).default('neutral'), fit: z.enum(['cover', 'contain']).default('cover') }), layout: z.object({ mode: z.enum(['free', 'vertical', 'horizontal', 'grid']), gap: z.number().min(0).max(1000), padding: z.number().min(0).max(1000), align: z.enum(['start', 'center', 'end']), columns: z.number().int().min(1).max(12).optional() }), actions: z.array(actionSchema).max(10), children: z.array(z.string().max(100)).max(1000) });
 export const screenSchema = z.object({ id: z.string().max(100), name: z.string().max(200), description: z.string().max(5000).default(''), device: z.string().max(100), width: z.number().min(100).max(6000), height: z.number().min(100).max(10000), background: color, nodes: z.array(nodeSchema).max(2000), viewportSettings: z.object({ statusBar: z.boolean(), deviceFrame: z.boolean(), safeArea: z.boolean(), scrollHeight: z.number().min(100).max(20000) }) });
-export const projectSchema = z.object({ id: z.string().max(100), name: z.string().min(1).max(200), version: z.literal('1.0'), createdAt: z.string(), updatedAt: z.string(), settings: z.object({ description: z.string().max(10000), notes: z.string().max(10000), responsive: z.string().max(5000) }), assets: z.array(z.object({ id: z.string(), name: z.string(), src: z.string().max(12000000).refine(safeImage) })).max(200), screens: z.array(screenSchema).min(1).max(100), startScreenId: z.string().max(100) }).superRefine((p, ctx) => {
+export const fontAssetSchema = z.object({ id: z.string().max(100).regex(/^[a-zA-Z0-9_-]+$/), name: z.string().max(160), family: z.string().max(160).regex(/^[a-zA-Z0-9 _-]+$/), src: z.string().max(20000000).regex(/^data:(?:font\/(?:woff2?|ttf|otf)|application\/(?:font-woff|octet-stream));base64,[a-zA-Z0-9+/=]+$/), weight: z.string().regex(/^[1-9]00(?: [1-9]00)?$/).default('100 900'), unicodeRange: z.string().max(15000).regex(/^[uU+0-9a-fA-F?, \-]*$/).default(''), style: z.enum(['normal','italic']).default('normal') });
+export type FontAsset = z.infer<typeof fontAssetSchema>;
+export const projectSchema = z.object({ id: z.string().max(100), name: z.string().min(1).max(200), version: z.enum(['1.0','2.0']), createdAt: z.string(), updatedAt: z.string(), library: z.array(z.object({id:z.string().max(100),name:z.string().max(200),nodes:z.array(nodeSchema).max(300)})).max(30).default([]), fonts: z.array(fontAssetSchema).max(1000).default([]), settings: z.object({ description: z.string().max(10000), notes: z.string().max(10000), responsive: z.string().max(5000) }), assets: z.array(z.object({ id: z.string(), name: z.string(), src: z.string().max(12000000).refine(safeImage) })).max(200), screens: z.array(screenSchema).min(1).max(100), startScreenId: z.string().max(100) }).superRefine((p, ctx) => {
+  if (new Set(p.library.map(c=>c.id)).size !== p.library.length || new Set(p.fonts.map(f=>f.id)).size !== p.fonts.length) ctx.addIssue({code:'custom',message:'保存部品またはフォントのIDが重複しています'});
+  p.library.forEach(component=>{
+    const nodes=component.nodes,ids=new Set(nodes.map(n=>n.id));
+    if(ids.size!==nodes.length || nodes.some(n=>!/^[a-zA-Z0-9_-]{1,100}$/.test(n.id)))ctx.addIssue({code:'custom',message:'保存部品の要素IDが無効です'});
+    nodes.forEach(n=>{const seen=new Set([n.id]);let id=n.parentId;while(id){if(seen.has(id)||!ids.has(id)){ctx.addIssue({code:'custom',message:'保存部品の階層が無効です'});break;}seen.add(id);id=nodes.find(v=>v.id===id)!.parentId;}});
+  });
   const ids = p.screens.map(s => s.id);
   if (new Set(ids).size !== ids.length || !ids.includes(p.startScreenId)) ctx.addIssue({ code: 'custom', message: '画面IDまたはスタート画面が無効です' });
   const allIds = p.screens.flatMap(s => s.nodes.map(n => n.id));
@@ -54,7 +62,7 @@ export function newNode(type: NodeType, x = 32, y = 160): UINode {
       borderColor: '#D9D3C9', borderWidth: def.border ? 1 : 0,
       radius: def.radius ?? 12, opacity: 1, shadow: type === 'dialog' || type === 'toast',
     }),
-    properties: { text: def.text, src: type === 'image' ? '/assets/mountain.jpg' : '', icon: def.icon ?? 'Heart', checked: def.checked ?? false, role: '', fixed: 'none', value: def.value ?? 50, disabled: false, tone: type === 'alert' ? 'success' : 'neutral', fit: 'cover' },
+    properties: { text: def.text, src: type === 'image' ? '/assets/mountain.jpg' : '', icon: def.icon ?? 'Heart', iconSize:0, iconStroke:1.7, checked: def.checked ?? false, role: '', fixed: 'none', value: def.value ?? 50, disabled: false, tone: type === 'alert' ? 'success' : 'neutral', fit: 'cover' },
     layout: { mode: 'free', gap: 12, padding: 16, align: 'start' }, actions: [], children: [],
   };
 }
@@ -90,7 +98,7 @@ export function createProject(blank = false): Project {
     const homeBtn = node(saved, 'button', 'ホームに戻る', 26, 579, 341, 50, 'ほかの旅を見つける', { radius: 10 }); homeBtn.actions = [{ id: uid(), trigger: 'click', type: 'navigate', targetScreenId: home.id, url: '', transition: 'fade' }];
   }
   const now = new Date().toISOString();
-  return { id: uid(), name: blank ? '無題のプロジェクト' : '旅のアプリ「yohaku」', version: '1.0', createdAt: now, updatedAt: now, settings: { description: blank ? '' : '日常に余白をつくる、小さな旅を見つけるアプリ。', notes: '', responsive: 'スマートフォンを基準に、幅に合わせて余白を調整する。' }, assets: [], screens: blank ? [home] : [home, detail, saved], startScreenId: home.id };
+  return { id: uid(), name: blank ? '無題のプロジェクト' : '旅のアプリ「yohaku」', version: '2.0', createdAt: now, updatedAt: now, fonts: [], library: [], settings: { description: blank ? '' : '日常に余白をつくる、小さな旅を見つけるアプリ。', notes: '', responsive: 'スマートフォンを基準に、幅に合わせて余白を調整する。' }, assets: [], screens: blank ? [home] : [home, detail, saved], startScreenId: home.id };
 }
 export function absolutePosition(n: UINode, nodes: UINode[]): { x: number; y: number } { let x = n.x, y = n.y, parent = n.parentId; const seen = new Set([n.id]); while (parent && !seen.has(parent)) { seen.add(parent); const p = nodes.find(v => v.id === parent); if (!p) break; x += p.x; y += p.y; parent = p.parentId; } return { x, y }; }
 export function parseProject(raw: unknown): Project {
@@ -100,6 +108,7 @@ export function parseProject(raw: unknown): Project {
     node.children = screen.nodes.filter(child => child.parentId === node.id).map(child => child.id);
     if (original.screens[i].nodes[j].properties.value === undefined) node.properties.value = componentDefinitions[node.type].value ?? 0;
   }));
+  p.library.forEach(c=>c.nodes.forEach(n=>{n.children=c.nodes.filter(v=>v.parentId===n.id).map(v=>v.id);}));
   return p;
 }
 export function warnings(p: Project) { return p.screens.flatMap(s => s.nodes.flatMap(n => n.actions.filter(a => a.type === 'navigate' && !p.screens.some(s => s.id === a.targetScreenId)).map(() => `${s.name}の「${n.name}」の移動先が見つかりません`))); }

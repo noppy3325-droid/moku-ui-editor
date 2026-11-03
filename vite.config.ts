@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import { offlineWorkerSource } from './build/offline-worker';
 
 export default defineConfig({
+  server: { watch: { ignored: ['**/artifacts/**'] } },
   build: { rollupOptions: { output: { manualChunks(id) {
+    if (id.includes('/node_modules/@fontsource-variable/')) return 'font-catalog';
     if (id.includes('/node_modules/zod/')) return 'validation';
     if (id.includes('/node_modules/dexie/')) return 'local-storage';
   } } } },

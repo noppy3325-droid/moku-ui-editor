@@ -1,3 +1,4 @@
+import { installFonts } from './fonts';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Code2, Component, Download, FolderOpen, HardDrive, HelpCircle, Layers3, LoaderCircle, Play, Redo2, RefreshCw, Save, Settings2, Smartphone, Undo2, Upload, Wifi, WifiOff, X } from 'lucide-react';
 import { initialize, persistNow, useEditor } from './store';
@@ -26,6 +27,7 @@ function ProjectName() {
 
 export default function App() {
   const st = useEditor(), offline = useOffline();
+  useEffect(() => { installFonts(st.project); }, [st.project.fonts]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [projectMenu, setProjectMenu] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'library' | 'inspector' | null>(null);
@@ -90,7 +92,7 @@ export default function App() {
     {mobilePanel && <button className="mobile-backdrop" aria-label="パネルを閉じる" onClick={() => setMobilePanel(null)} />}
     {st.saveStatus === 'error' && <div className="save-error-banner" role="alert"><AlertTriangle size={16} /><span>編集内容を保存できていません。ファイルにバックアップしてください。</span><button onClick={saveNow}>再試行</button><button onClick={() => open('backup')}>JSONを保存</button></div>}
     <div className="editor-layout"><Sidebar onProjects={() => open('projects')} onHelp={() => open('help')} onFlow={() => open('flow')} /><Canvas /><Inspector /></div>
-    <footer className="app-statusbar"><div><HardDrive size={12} /><span>端末内に保存</span><span className="statusbar-divider">·</span><span className="storage-description">クラウドへの自動送信はありません</span></div><div><span className="selected-count">{st.selected.length ? `${st.selected.length}個を選択` : `${screen.nodes.length} パーツ`}</span>{issues.length > 0 && <button className="warning-button" onClick={() => open('flow')}><AlertTriangle size={12} />リンクを確認 ({issues.length})</button>}<button onClick={() => open('help')}><HelpCircle size={13} />操作ガイド</button><span className="version-label">2.0</span></div></footer>
+    <footer className="app-statusbar"><div><HardDrive size={12} /><span>端末内に保存</span><span className="statusbar-divider">·</span><span className="storage-description">クラウドへの自動送信はありません</span></div><div><span className="selected-count">{st.selected.length ? `${st.selected.length}個を選択` : `${screen.nodes.length} パーツ`}</span>{issues.length > 0 && <button className="warning-button" onClick={() => open('flow')}><AlertTriangle size={12} />リンクを確認 ({issues.length})</button>}<button onClick={() => open('help')}><HelpCircle size={13} />操作ガイド</button><span className="version-label">3.0</span></div></footer>
     <input type="file" accept="application/json,.json" ref={importRef} className="sr-only" onChange={event => { importProject(event.target.files?.[0]); event.target.value = ''; }} />
     <Suspense fallback={<DialogSkeleton />}>
       {dialog === 'preview' && <PreviewDialog onClose={() => setDialog(null)} />}
