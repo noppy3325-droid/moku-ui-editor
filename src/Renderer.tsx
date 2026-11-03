@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Bell, Bookmark, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Compass, Download, FileText, Heart, Home, Image, Info, MapPin, Menu, Minus, Plus, Search, Settings, Star, Upload, UserRound, Users, X } from 'lucide-react';
 import type { Action, Screen, UINode } from './model';
+import { appearanceCSS } from './appearance';
 
 export const iconMap = { Heart, Home, Search, Star, UserRound, ArrowRight, ArrowLeft, Settings, Bell, MapPin, Bookmark, Menu, Compass, Check, CalendarDays, Download, Upload, FileText, Users, Info, CircleAlert, Plus, Minus, X };
 export const iconNames = Object.keys(iconMap);
@@ -19,7 +20,7 @@ export function nodeCSS(n: UINode): CSSProperties {
     opacity: n.styles.opacity, boxShadow: n.styles.shadow ? '0 8px 28px #27342b16' : undefined,
     fontFamily: n.styles.fontFamily, fontSize: n.styles.fontSize, fontWeight: n.styles.fontWeight,
     lineHeight: n.styles.lineHeight, letterSpacing: n.styles.letterSpacing, textAlign: n.styles.textAlign,
-    boxSizing: 'border-box', display: n.visible ? undefined : 'none',
+    boxSizing: 'border-box', display: n.visible ? undefined : 'none', ...appearanceCSS(n),
   };
 }
 const options = (text: string) => text.split(/\r?\n|[,、]/).map(s => s.trim()).filter(Boolean);

@@ -9,7 +9,18 @@ const bounded = z.number().finite().min(-20000).max(20000);
 export const safeUrl = (value: string) => { try { return ['https:', 'http:', 'mailto:'].includes(new URL(value).protocol); } catch { return false; } };
 export const safeImage = (value: string) => /^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(value) || /^\/assets\/[a-zA-Z0-9_.-]+$/.test(value) || value === '';
 export const actionSchema = z.object({ id: z.string().max(100), trigger: z.literal('click'), type: z.enum(['none', 'navigate', 'back', 'url']), targetScreenId: z.string().max(100).default(''), url: z.string().max(2000).refine(v => !v || safeUrl(v), '安全なURLを指定してください').default(''), transition: z.enum(['none', 'fade', 'slide']).default('fade') });
-const styleSchema = z.object({ background: color, color, fontSize: z.number().min(1).max(500), fontFamily: z.string().max(160).regex(/^[\p{L}\p{N}\s"',-]+$/u, "フォント名を確認してください"), fontWeight: z.number().min(100).max(900), lineHeight: z.number().min(.5).max(5), letterSpacing: z.number().min(-20).max(100), textAlign: z.enum(['left', 'center', 'right']), borderColor: color, borderWidth: z.number().min(0).max(50), radius: z.number().min(0).max(1000), opacity: z.number().min(0).max(1), shadow: z.boolean() });
+const legacyStyleSchema = z.object({ background: color, color, fontSize: z.number().min(1).max(500), fontFamily: z.string().max(160).regex(/^[\p{L}\p{N}\s"',-]+$/u, "フォント名を確認してください"), fontWeight: z.number().min(100).max(900), lineHeight: z.number().min(.5).max(5), letterSpacing: z.number().min(-20).max(100), textAlign: z.enum(['left', 'center', 'right']), borderColor: color, borderWidth: z.number().min(0).max(50), radius: z.number().min(0).max(1000), opacity: z.number().min(0).max(1), shadow: z.boolean() });
+export const gradientSchema = z.object({ type: z.enum(['none', 'linear', 'radial']).default('none'), angle: z.number().min(0).max(360).default(135), from: color.default('#D4A373'), to: color.default('#0891B2') });
+const styleSchema = legacyStyleSchema.extend({
+  gradient: gradientSchema.default({ type: 'none', angle: 135, from: '#D4A373', to: '#0891B2' }),
+  corners: z.object({ enabled: z.boolean(), topLeft: z.number().min(0).max(1000), topRight: z.number().min(0).max(1000), bottomRight: z.number().min(0).max(1000), bottomLeft: z.number().min(0).max(1000) }).default({ enabled: false, topLeft: 12, topRight: 12, bottomRight: 12, bottomLeft: 12 }),
+  shadowStyle: z.object({ x: z.number().min(-500).max(500), y: z.number().min(-500).max(500), blur: z.number().min(0).max(500), spread: z.number().min(-500).max(500), color, inset: z.boolean() }).default({ x: 0, y: 8, blur: 28, spread: 0, color: '#27342b16', inset: false }),
+  borderStyle: z.enum(['solid', 'dashed', 'dotted', 'double']).default('solid'),
+  fontStyle: z.enum(['normal', 'italic']).default('normal'), textDecoration: z.enum(['none', 'underline', 'line-through']).default('none'), textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).default('none'),
+  verticalAlign: z.enum(['top', 'center', 'bottom']).default('top'), autoHeight: z.boolean().default(false),
+  padding: z.object({ enabled: z.boolean(), top: z.number().min(0).max(1000), right: z.number().min(0).max(1000), bottom: z.number().min(0).max(1000), left: z.number().min(0).max(1000) }).default({ enabled: false, top: 0, right: 0, bottom: 0, left: 0 }),
+  blur: z.number().min(0).max(100).default(0), backdropBlur: z.number().min(0).max(100).default(0), accent: color.default('#D4A373'),
+});
 export const nodeSchema = z.object({ id: z.string().max(100), type: z.enum(nodeTypes), name: z.string().max(200), parentId: z.string().max(100).nullable(), x: bounded, y: bounded, width: z.number().min(1).max(10000), height: z.number().min(1).max(10000), rotation: z.number().min(-360).max(360), visible: z.boolean(), locked: z.boolean(), zIndex: z.number().int().min(-10000).max(10000), styles: styleSchema, properties: z.object({ text: z.string().max(20000), src: z.string().max(12000000).refine(safeImage, '画像形式が無効です'), icon: z.string().max(60), checked: z.boolean(), role: z.string().max(1000), fixed: z.enum(['none', 'top', 'bottom']), value: z.number().min(0).max(100).default(50), disabled: z.boolean().default(false), tone: z.enum(['neutral', 'success', 'warning', 'error', 'info']).default('neutral'), fit: z.enum(['cover', 'contain']).default('cover') }), layout: z.object({ mode: z.enum(['free', 'vertical', 'horizontal', 'grid']), gap: z.number().min(0).max(1000), padding: z.number().min(0).max(1000), align: z.enum(['start', 'center', 'end']) }), actions: z.array(actionSchema).max(10), children: z.array(z.string().max(100)).max(1000) });
 export const screenSchema = z.object({ id: z.string().max(100), name: z.string().max(200), description: z.string().max(5000).default(''), device: z.string().max(100), width: z.number().min(100).max(6000), height: z.number().min(100).max(10000), background: color, nodes: z.array(nodeSchema).max(2000), viewportSettings: z.object({ statusBar: z.boolean(), deviceFrame: z.boolean(), safeArea: z.boolean(), scrollHeight: z.number().min(100).max(20000) }) });
 export const projectSchema = z.object({ id: z.string().max(100), name: z.string().min(1).max(200), version: z.literal('1.0'), createdAt: z.string(), updatedAt: z.string(), settings: z.object({ description: z.string().max(10000), notes: z.string().max(10000), responsive: z.string().max(5000) }), assets: z.array(z.object({ id: z.string(), name: z.string(), src: z.string().max(12000000).refine(safeImage) })).max(200), screens: z.array(screenSchema).min(1).max(100), startScreenId: z.string().max(100) }).superRefine((p, ctx) => {
@@ -35,14 +46,14 @@ export function newNode(type: NodeType, x = 32, y = 160): UINode {
   return {
     id: uid(), type, name: def.label, parentId: null, x, y, width: def.width, height: def.height,
     rotation: 0, visible: true, locked: false, zIndex: 0,
-    styles: {
+    styles: styleSchema.parse({
       background: def.background ?? '#F7F3EC', color: def.color ?? '#293A32',
       fontSize: def.fontSize ?? 14, fontFamily: '"Noto Sans JP", sans-serif',
       fontWeight: ['button', 'badge', 'chip'].includes(type) ? 600 : 400, lineHeight: 1.6,
       letterSpacing: 0, textAlign: ['button', 'badge', 'chip', 'avatar'].includes(type) ? 'center' : 'left',
       borderColor: '#D9D3C9', borderWidth: def.border ? 1 : 0,
       radius: def.radius ?? 12, opacity: 1, shadow: type === 'dialog' || type === 'toast',
-    },
+    }),
     properties: { text: def.text, src: type === 'image' ? '/assets/mountain.jpg' : '', icon: def.icon ?? 'Heart', checked: def.checked ?? false, role: '', fixed: 'none', value: def.value ?? 50, disabled: false, tone: type === 'alert' ? 'success' : 'neutral', fit: 'cover' },
     layout: { mode: 'free', gap: 12, padding: 16, align: 'start' }, actions: [], children: [],
   };
